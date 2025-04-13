@@ -3,7 +3,6 @@ from discord.ext import commands, tasks
 import socket
 import os
 from dotenv import load_dotenv
-from flask import Flask
 from threading import Thread
 
 # 環境變數與 token
