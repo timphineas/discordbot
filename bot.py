@@ -4,10 +4,26 @@ import socket
 import os
 from dotenv import load_dotenv
 from threading import Thread
+from flask import Flask
 
 # 環境變數與 token
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is alive!"
+
+def run():
+    app.run(host='0.0.0.0', port=3000)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
 
 intents = discord.Intents.default()
 intents.guilds = True
@@ -258,5 +274,6 @@ async def on_raw_reaction_add(payload):
     except Exception as e:
       print(f"處理歡迎訊息時出錯：{e}")
 
+keep_alive()
 # 啟動 Bot
 bot.run(TOKEN)
