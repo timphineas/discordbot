@@ -3,8 +3,10 @@ from discord.ext import commands, tasks
 import socket
 import os
 from dotenv import load_dotenv
+from flask import Flask
+from threading import Thread
 
-# 載入 .env 檔案
+# 環境變數與 token
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
@@ -16,12 +18,14 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# 全域常數與設定
 REACTION_EMOJI = "✅"
-AGREE_CHANNEL_NAME = "✅｜agree-to-join"
+AGREE_CHANNEL_NAME = "✅｜同意加入"
 PLAYER_ROLE_NAME = "玩家"
 UNVERIFIED_ROLE_NAME = "未驗證"
+SERVER_STATUS_CHANNEL_NAME = "📶｜伺服器狀態"
 
-SERVER_STATUS_CHANNEL_NAME = "伺服器狀態"
+# 狀態伺服器掃描設定
 SERVERS_TO_MONITOR = [
     {"name": "Login Server", "ip": "maplewaltzro.servegame.com", "port": 6900},
     {"name": "Char Server", "ip": "maplewaltzro.servegame.com", "port": 6121},
@@ -36,7 +40,7 @@ async def on_ready():
     print(f"登入成功：{bot.user.name}")
     check_servers.start()
 
-@tasks.loop(seconds=60)
+@tasks.loop(minutes=30)
 async def check_servers():
     global last_statuses, status_message_id
 
@@ -87,6 +91,56 @@ async def check_servers():
         msg = await channel.send(embed=embed)
         status_message_id = msg.id
 
+# 頻道結構設定
+channel_structure = {
+    "⚔️｜歡迎區": [
+        ("📜｜伺服器規章", False),  # 此頻道將同時顯示規章與添加 ✅ 反應
+    ],
+    "📢｜官方專區": [
+        ("📢｜官方公告", True),
+        ("🛠️｜更新日誌", True),
+        ("🧾｜活動資訊", True),
+        ("⚠️｜維護通知", True),
+        (SERVER_STATUS_CHANNEL_NAME, True),
+    ],
+    "💬｜玩家討論區": [
+        ("💬｜閒聊頻道", True),
+        ("❓｜新手提問", True),
+        ("🗡️｜戰士頻道", True),
+        ("🏹｜弓箭手頻道", True),
+        ("🧙｜法師頻道", True),
+        ("🩺｜服事頻道", True),
+        ("🕵️｜盜賊頻道", True),
+        ("🔧｜商人頻道", True),
+    ],
+    "🛠｜技術支援": [
+        ("🐛｜BUG回報", True),
+        ("🆘｜客服支援", True),
+    ],
+    "🔒｜GM專區": [
+        ("🔧｜GM聊天", False),
+        ("🗂️｜團隊資料", False),
+    ],
+}
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def 重建頻道(ctx):
+    guild = ctx.guild
+    await ctx.send("⚠️ 開始刪除所有舊頻道與分類...")
+
+    # 刪除所有舊分類與底下頻道
+    for category in guild.categories:
+        try:
+            for channel in category.channels:
+                await channel.delete()
+            await category.delete()
+        except:
+            pass
+
+    await ctx.send("✅ 舊分類已刪除，開始重新建置...")
+    await 建置頻道(ctx)
+
 @bot.command()
 @commands.has_permissions(administrator=True)
 async def 建置頻道(ctx):
@@ -109,54 +163,30 @@ async def 建置頻道(ctx):
             role = await guild.create_role(name=name, permissions=perms)
             created_roles[name] = role
 
-    channel_structure = {
-        "⚔️｜歡迎區": [
-            ("📜｜welcome", False),
-            (AGREE_CHANNEL_NAME, False),
-        ],
-        "📢｜官方專區": [
-            ("📢｜official-announcements", True),
-            ("🛠️｜update-log", True),
-            ("🧾｜event-info", True),
-            ("⚠️｜maintenance", True),
-            (SERVER_STATUS_CHANNEL_NAME, True),
-        ],
-        "💬｜玩家討論區": [
-            ("💬｜general-chat", True),
-            ("❓｜newbie-questions", True),
-            ("⚔️｜class-discussion", True),
-            ("🧙｜wizard-hall", True),
-        ],
-        "🛠｜技術支援": [
-            ("🐛｜bug-report", True),
-            ("🆘｜support-ticket", True),
-        ],
-        "🔒｜GM專區": [
-            ("🔧｜gm-chat", False),
-            ("🗂️｜staff-docs", False),
-        ],
-    }
-
     for category_name, channels in channel_structure.items():
-        category = await guild.create_category(category_name)
+        category = discord.utils.get(guild.categories, name=category_name)
+        if not category:
+            category = await guild.create_category(category_name)
         for channel_name, is_visible in channels:
+            existing_channel = discord.utils.get(guild.text_channels, name=channel_name)
+            if existing_channel:
+                continue
+
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(read_messages=is_visible),
                 created_roles[PLAYER_ROLE_NAME]: discord.PermissionOverwrite(read_messages=True),
                 created_roles["GM"]: discord.PermissionOverwrite(read_messages=True),
                 created_roles["Bot"]: discord.PermissionOverwrite(read_messages=True),
             }
-            if "gm" in channel_name or "staff" in channel_name:
+            if "gm" in channel_name or "團隊" in channel_name:
                 overwrites[guild.default_role] = discord.PermissionOverwrite(read_messages=False)
                 overwrites[created_roles[PLAYER_ROLE_NAME]] = discord.PermissionOverwrite(read_messages=False)
 
             channel = await guild.create_text_channel(channel_name, category=category, overwrites=overwrites)
 
-            if channel.name == AGREE_CHANNEL_NAME:
-                msg = await channel.send("請閱讀規章後點擊下方✅以取得身分組")
-                await msg.add_reaction(REACTION_EMOJI)
-            if channel.name == "📜｜welcome":
-                await channel.send("""
+
+            if channel.name == "📜｜伺服器規章":
+                msg = await channel.send("""
 📜【伺服器免責聲明】📜
 
 本伺服器為 非官方私有伺服器，僅供玩家娛樂、研究與技術交流用途，不涉及任何營利行為，亦與 Gravity 官方無任何關聯。
@@ -171,10 +201,15 @@ async def 建置頻道(ctx):
 
 🔒 本聲明內容如有更新，將於官方公告區發佈，恕不另行通知。
 
-本服務為非營利開發測試環境，任何資料可能隨時清除。 「所有資料僅供測試與技術研究，不代表實際遊戲內容」
+本服務為非營利開發測試環境，任何資料可能隨時清除。
 
-✅ 點選下方 `✅` 表示你已閱讀並同意上述規章，即可獲得玩家身分。
+「所有資料僅供測試與技術研究，不代表實際遊戲內容」
+
+點選下方 `✅` 表示你已閱讀並同意上述規章，即可獲得玩家身分。
                 """)
+                await msg.add_reaction(REACTION_EMOJI)
+                await msg.pin()
+
     await ctx.send("頻道與角色建置完成 ✅")
 
 @bot.event
@@ -187,7 +222,7 @@ async def on_raw_reaction_add(payload):
     if member is None or member.bot:
         return
 
-    channel = discord.utils.get(guild.text_channels, name=AGREE_CHANNEL_NAME)
+    channel = discord.utils.get(guild.text_channels, name="📜｜伺服器規章")
     if payload.channel_id != channel.id:
         return
 
@@ -198,23 +233,31 @@ async def on_raw_reaction_add(payload):
     if unverified_role:
         await member.remove_roles(unverified_role)
     try:
+        # 公開歡迎訊息
+        public_channel = discord.utils.get(guild.text_channels, name="📢｜官方公告")
+        activity_channel = discord.utils.get(guild.text_channels, name="🧾｜活動資訊")
+        welcome_embed = discord.Embed(
+        title="🎉 歡迎加入 MapleWaltz RO！",
+        description=(
+            f"{member.mention} 很高興你加入我們的大家庭！\n\n"
+            f"👉 記得查看：\n"
+            f"📢 {public_channel.mention} 了解伺服器公告\n"
+            f"🧾 {activity_channel.mention} 查看近期活動！"
+        ),
+        color=0x33ccff
+    )
+        if public_channel:
+            await public_channel.send(embed=welcome_embed)
+
+        # 備援私訊
         await member.send("✅ 你已成功同意規章，並獲得玩家身份！")
-    except:
-        pass
+        if public_channel:
+            await member.send(f"📢 請前往 {public_channel.mention} 查看最新公告與活動資訊！")
+        if activity_channel:
+            await member.send(f"🧾 近期活動詳情請見：{activity_channel.mention}")
 
+    except Exception as e:
+      print(f"處理歡迎訊息時出錯：{e}")
+
+# 啟動 Bot
 bot.run(TOKEN)
-
-
-from flask import Flask
-from threading import Thread
-
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is alive"
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-Thread(target=run).start()
