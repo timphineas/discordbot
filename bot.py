@@ -23,9 +23,9 @@ UNVERIFIED_ROLE_NAME = "未驗證"
 
 SERVER_STATUS_CHANNEL_NAME = "伺服器狀態"
 SERVERS_TO_MONITOR = [
-    {"name": "Login Server", "ip": "127.0.0.1", "port": 6900},
-    {"name": "Char Server", "ip": "127.0.0.1", "port": 6121},
-    {"name": "Map Server", "ip": "127.0.0.1", "port": 5121},
+    {"name": "Login Server", "ip": "maplewaltzro.servegame.com", "port": 6900},
+    {"name": "Char Server", "ip": "maplewaltzro.servegame.com", "port": 6121},
+    {"name": "Map Server", "ip": "maplewaltzro.servegame.com", "port": 5121},
 ]
 
 last_statuses = {}
@@ -155,7 +155,26 @@ async def 建置頻道(ctx):
             if channel.name == AGREE_CHANNEL_NAME:
                 msg = await channel.send("請閱讀規章後點擊下方✅以取得身分組")
                 await msg.add_reaction(REACTION_EMOJI)
+            if channel.name == "📜｜welcome":
+                await channel.send("""
+📜【伺服器免責聲明】📜
 
+本伺服器為 非官方私有伺服器，僅供玩家娛樂、研究與技術交流用途，不涉及任何營利行為，亦與 Gravity 官方無任何關聯。
+
+玩家於本伺服器中的所有行為（包括但不限於遊戲內購買、交易、互動）皆屬自願性參與，若因此導致任何損失，本團隊將不承擔法律責任。
+
+本伺服器有權依據運營需求，隨時調整遊戲內容、封鎖帳號、刪除資料等，恕不另行通知，亦不提供任何形式之補償。
+
+使用本伺服器即表示您已閱讀並同意本免責聲明之所有條款。若您不同意，請勿登入或使用本伺服器。
+
+本伺服器僅對系統異常或 BUG 提供修正協助，對玩家個人電腦問題、網路狀況或第三方工具導致之錯誤，不提供支援。
+
+🔒 本聲明內容如有更新，將於官方公告區發佈，恕不另行通知。
+
+本服務為非營利開發測試環境，任何資料可能隨時清除。 「所有資料僅供測試與技術研究，不代表實際遊戲內容」
+
+✅ 點選下方 `✅` 表示你已閱讀並同意上述規章，即可獲得玩家身分。
+                """)
     await ctx.send("頻道與角色建置完成 ✅")
 
 @bot.event
