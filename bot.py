@@ -1,6 +1,12 @@
 import discord
 from discord.ext import commands, tasks
 import socket
+import os
+from dotenv import load_dotenv
+
+# 載入 .env 檔案
+load_dotenv()
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 intents = discord.Intents.default()
 intents.guilds = True
@@ -10,7 +16,6 @@ intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-TOKEN = "MTM2MDg2MTc3NDQyOTE2MzU1MA.G7Pvrg.U_sRbIOZ7dEA9Oira70oIRdSan1nkw1yrP0haQ"
 REACTION_EMOJI = "✅"
 AGREE_CHANNEL_NAME = "✅｜agree-to-join"
 PLAYER_ROLE_NAME = "玩家"
@@ -38,7 +43,6 @@ async def check_servers():
     guild = bot.guilds[0]
     channel = discord.utils.get(guild.text_channels, name=SERVER_STATUS_CHANNEL_NAME)
     if channel is None:
-        # 建立頻道
         category = discord.utils.get(guild.categories, name="📢｜官方專區")
         if category:
             channel = await guild.create_text_channel(SERVER_STATUS_CHANNEL_NAME, category=category)
