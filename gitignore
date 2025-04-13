@@ -1,0 +1,22 @@
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+ENV/
+.build/
+dist/
+
+# 忽略 VSCode 設定
+.vscode/
+
+# 不追蹤 token 或私密設定
+token.txt
+.secret.env
+
+# 作業系統相關
+.DS_Store
+Thumbs.db
